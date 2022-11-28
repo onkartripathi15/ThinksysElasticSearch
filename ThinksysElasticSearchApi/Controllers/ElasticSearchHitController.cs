@@ -1,25 +1,52 @@
 ﻿using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
-using ThinksysElasticSearchApi.Interface;
+using Nest;
+using ThinksysElasticSearchApi.Elastic;
 using ThinksysElasticSearchApi.Model;
 
 namespace ThinksysElasticSearchApi.Controllers
 {
-    [Route("api/[controller]")]
     [ApiController]
     public class ElasticSearchHitController : ControllerBase
     {
-        private readonly IElasticSearchHit _elasticSearchHit;
-        public  ElasticSearchHitController(IElasticSearchHit elasticSearchHit)
+        private readonly IElasticSearchHitService _elasticSearchHit;
+        public  ElasticSearchHitController(IElasticSearchHitService elasticSearchHit)
         {
             _elasticSearchHit = elasticSearchHit;
         }
-        [HttpPost]
-        public IActionResult GetDataBySearchText(string keyword)
-        {
+        [Route("api/[controller]/GetDataBySearchText")]
+        [HttpPost]        
+        public IActionResult GetDataBySearchText([FromBody] string keyword)
+        {            
             keyword = keyword.ToLower().Trim();
-           SearchModel searchModel= _elasticSearchHit.GetDataBySearchText(keyword); 
-            return Unauthorized();
+            List<SearchModel> searchModel= _elasticSearchHit.GetDataBySearchText(keyword); 
+            return Ok(searchModel);
+        }
+
+        [Route("api/[controller]/PostData")]
+        [HttpPost]
+        public IActionResult PostData(SearchModel searchModel)
+        {
+            
+            if (HttpContext.Request.Headers.TryGetValue("UserID", out var extractedApiKey))
+            {
+                int id = Convert.ToInt32(extractedApiKey);
+                if (!string.IsNullOrEmpty(searchModel.Url) && !string.IsNullOrEmpty(searchModel.Keyword) && !string.IsNullOrEmpty(searchModel.Description))
+                {
+                    var result = _elasticSearchHit.PostData(searchModel, id);
+                    return Ok(new
+                    {
+                        Message = result
+                    }) ;
+                }
+                else
+                    return ValidationProblem();
+            }
+            else
+            {
+                return Unauthorized();
+            }
+           
         }
     }
 }
